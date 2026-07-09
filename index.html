@@ -65,10 +65,13 @@
 const {useState,useEffect,useCallback} = React;
 
 /* ============================================================
-   >>> CONFIGURATION — À REMPLIR (voir GUIDE_DEPLOIEMENT.md) <<<
+   >>> CONFIGURATION SUPABASE (voir GUIDE_DEPLOIEMENT.md) <<<
    ============================================================ */
 const SUPABASE_URL      = "https://hehzubjnsnihfzzbgwyd.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhlaHp1Ympuc25paGZ6emJnd3lkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM2MDQwNzAsImV4cCI6MjA5OTE4MDA3MH0.H1QC85y7KLqcQP3mm2ZV_xva8USNWni-x_dtMk_hoEg";
+/* Domaine technique interne : la connexion se fait par NOM D'ENTREPRISE,
+   converti en e-mail interne <slug>@ao.local (jamais affiché à l'utilisateur). */
+const MAIL_DOMAIN = "ao.local";
 /* ============================================================ */
 
 const CONFIGURED = !SUPABASE_URL.includes("VOTRE-PROJET") && !SUPABASE_ANON_KEY.includes("VOTRE_CLE");
@@ -77,12 +80,16 @@ try { if(CONFIGURED && window.supabase) sb = window.supabase.createClient(SUPABA
 catch(e){ console.error("Supabase createClient:", e); }
 
 /* ---------- Helpers ---------- */
-const safe = s => (s||"").replace(/[\\/:*?"<>|\n\r]+/g,"_").trim();
+const safe = s => (s||"").replace(/[\\/:*?"<>|\n\r]+/g,"_").replace(/\s+/g," ").trim();
 const fmt  = n => (n||n===0) ? Number(n).toLocaleString("fr-FR") : "—";
 const numPart = s => { const m=(s||"").match(/\d+/); return m?+m[0]:999; };
 const sortForm = a => a.slice().sort((x,y)=>numPart(x.num)-numPart(y.num));
+/* nom d'entreprise -> e-mail interne stable */
+const slug = s => (s||"").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"")
+  .replace(/[^a-z0-9]+/g,".").replace(/^\.+|\.+$/g,"").slice(0,40) || "societe";
+const emailFor = c => slug(c)+"@"+MAIL_DOMAIN;
 
-/* Note "Coût de la prestation" /10 : budget=6 ; moins cher -> vers 10 ; plus cher -> vers 1 */
+/* Note « Coût de la prestation » /10 : budget = 6 ; moins cher -> vers 10 ; plus cher -> vers 1 (bornée 1..10) */
 function noteCout(montant,budget){
   montant=+montant; budget=+budget;
   if(!montant||!budget||montant<=0||budget<=0) return null;
@@ -92,28 +99,45 @@ function noteCout(montant,budget){
 const noteColor = n => n==null?"#e4e4e7": n>=6?"#dcfce7": n>=4?"#fef9c3":"#fee2e2";
 function dl(blob,name){ const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),1500); }
 
-/* ---------- Excel : comparatif d'une formation ---------- */
+/* ---------- Excel : FICHE D'ÉVALUATION / COMPARATIF d'une formation ----------
+   Reproduit le template « EVALUATION FORMATION ». Seule la ligne
+   « Coût de la prestation » est calculée ; le reste est laissé vide
+   (notation technique manuelle). Note pondérée = pondération × Note/10. */
 function comparatifAOA(f,subs){
-  const line=(lib,pond,valFn)=>{ const r=["",lib,pond]; subs.forEach(s=>{ const v=valFn?valFn(s):["",""]; r.push(v[0],v[1]); }); return r; };
-  const h1=["","LIBELLES","pondération"]; subs.forEach(s=>h1.push(s.company_name,""));
-  const h2=["","",""]; subs.forEach(()=>h2.push("Note/10","Note pondérée"));
+  const crit=(lib,pond,fn)=>{ const r=["",lib,pond]; subs.forEach(s=>{ const v=fn?fn(s):["",""]; r.push(v[0],v[1]); }); return r; };
+  const r5=["","LIBELLES","pondération"]; subs.forEach(s=>r5.push(s.company_name,""));
+  const r6=["","",""]; subs.forEach(()=>r6.push("Note/10","Note pondérée"));
+  const rmt=["","Montant HT soumis (FCFA)",""]; subs.forEach(s=>rmt.push(s.montant_ht,""));
   return [
-    ["Évaluation par pondération — FORMATION OCI 2026"],
-    ["Thème", f.num+" — "+f.intitule],
-    ["Budget de référence (HT)", f.budget||""],
-    [], h1, h2,
-    line("Habilitation FDFP",0.1),
-    line("Expertise dans le domaine",0.2),
-    line("Proposition technique",0.3),
-    line("Total technique",""),
-    line("Coût de la prestation",0.5, s=>{ const n=noteCout(s.montant_ht,f.budget); return [n==null?"":n, n==null?"":Math.round(n*0.5*10000)/10000]; }),
-    line("Total",1), [],
-    ["Montant HT soumis :"],
-    ...subs.map(s=>["",s.company_name,s.montant_ht])
+    ["","Evaluation par pondération","PLAN DE FORMATION 2026"],
+    [],
+    ["","","Thème"],
+    ["","Evaluation des offres techniques et commerciale", f.num+" — "+f.intitule],
+    ["","Budget de référence (HT)", f.budget||""],
+    ["","Critères"],
+    r5, r6,
+    crit("Habilitation FDFP",0.1),
+    crit("Expertise dans le domaine",0.2),
+    crit("Proposition technique",0.3),
+    crit("Total technique",""),
+    crit("Coût de la prestation",0.5, s=>{ const n=noteCout(s.montant_ht,f.budget); return n==null?["",""]:[n, Math.round(n*0.5/10*10000)/10000]; }),
+    crit("Total",1),
+    crit("Classement Global",""),
+    [], rmt
   ];
 }
-const wbFromSheets = sheets => { const wb=XLSX.utils.book_new(); sheets.forEach(([n,aoa])=>XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(aoa),n.slice(0,31))); return wb; };
+function comparatifWS(f,subs){
+  const ws=XLSX.utils.aoa_to_sheet(comparatifAOA(f,subs));
+  const merges=[]; subs.forEach((s,i)=>{ const c=3+i*2; merges.push({s:{r:6,c},e:{r:6,c:c+1}}); }); // r6 = ligne noms (index 6)
+  ws["!merges"]=merges;
+  ws["!cols"]=[{wch:2},{wch:34},{wch:12}].concat(subs.flatMap(()=>[{wch:9},{wch:13}]));
+  return ws;
+}
+const wbFromWS = pairs => { const wb=XLSX.utils.book_new(); pairs.forEach(([n,ws])=>XLSX.utils.book_append_sheet(wb,ws,n.slice(0,31))); return wb; };
+const wbFromAOA = pairs => wbFromWS(pairs.map(([n,aoa])=>[n,XLSX.utils.aoa_to_sheet(aoa)]));
 const wbBlob = wb => new Blob([XLSX.write(wb,{type:"array",bookType:"xlsx"})],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
+
+/* ---------- Excel : RÉCAP GLOBAL (78 formations × budget × montant/fournisseur) ---------- */
 function recapAOA(formations,subs){
   const sups=[...new Set(subs.map(s=>s.company_name))].sort();
   const head=["N°","Lot","Intitulé","Budget HT (réf.)",...sups.map(s=>s+" — Montant HT")];
@@ -134,23 +158,26 @@ function Topbar({sub,right}){ return <div className="topbar">
   <div style={{marginLeft:"auto"}}>{right}</div>
 </div>; }
 
-/* ============ AUTHENTIFICATION ============ */
+/* ============ AUTHENTIFICATION (nom d'entreprise + mot de passe) ============ */
 function AuthScreen(){
   const [mode,setMode]=useState("login");
-  const [company,setCompany]=useState(""); const [email,setEmail]=useState(""); const [pwd,setPwd]=useState("");
+  const [company,setCompany]=useState(""); const [pwd,setPwd]=useState("");
   const [msg,setMsg]=useState(""); const [busy,setBusy]=useState(false);
 
   async function go(){
-    setMsg(""); setBusy(true);
+    setMsg("");
+    if(!company.trim()){ setMsg("⚠ Indiquez le nom de votre société."); return; }
+    if(pwd.length<6){ setMsg("⚠ Mot de passe : 6 caractères minimum."); return; }
+    setBusy(true);
+    const email=emailFor(company);
     try{
       if(mode==="signup"){
-        if(!company.trim()){ setMsg("Indiquez le nom de votre société."); setBusy(false); return; }
         const {data,error}=await sb.auth.signUp({email,password:pwd,options:{data:{company_name:company.trim()}}});
         if(error) throw error;
-        if(!data.session) setMsg("✓ Compte créé. Si la confirmation e-mail est activée, validez le lien reçu puis connectez-vous.");
+        if(!data.session){ setMsg("✓ Compte créé. Vous pouvez vous connecter."); setMode("login"); }
       }else{
         const {error}=await sb.auth.signInWithPassword({email,password:pwd});
-        if(error) throw error;
+        if(error) throw error.message&&/invalid/i.test(error.message)?new Error("Nom de société ou mot de passe incorrect."):error;
       }
     }catch(e){ setMsg("⚠ "+(e.message||"Erreur")); }
     setBusy(false);
@@ -162,21 +189,19 @@ function AuthScreen(){
       <div className="card" style={{padding:28}}>
         <h2 style={{marginBottom:4}}>{mode==="login"?"Connexion prestataire":"Créer un compte prestataire"}</h2>
         <p className="mut" style={{marginBottom:20}}>Plateforme de dépôt des offres — 78 formations, 4 lots.</p>
-        {mode==="signup" && <div className="field"><label>Nom de la société</label>
-          <input value={company} onChange={e=>setCompany(e.target.value)} placeholder="Ex : CABINET I2C"/></div>}
-        <div className="field"><label>E-mail</label>
-          <input type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="contact@societe.ci"/></div>
+        <div className="field"><label>Nom de la société</label>
+          <input value={company} onChange={e=>setCompany(e.target.value)} placeholder="Ex : CABINET I2C" onKeyDown={e=>e.key==='Enter'&&go()}/></div>
         <div className="field"><label>Mot de passe</label>
-          <input type="password" value={pwd} onChange={e=>setPwd(e.target.value)} placeholder="••••••••"/></div>
+          <input type="password" value={pwd} onChange={e=>setPwd(e.target.value)} placeholder="••••••••" onKeyDown={e=>e.key==='Enter'&&go()}/></div>
         {msg && <div style={{fontSize:13,marginBottom:12,color:msg[0]==="✓"?"var(--ok)":"var(--warn)"}}>{msg}</div>}
-        <button className="btn" style={{width:"100%"}} disabled={busy||!email||!pwd} onClick={go}>
+        <button className="btn" style={{width:"100%"}} disabled={busy} onClick={go}>
           {busy?<span className="spin"/>:(mode==="login"?"Se connecter":"Créer mon compte")}</button>
         <p className="mut" style={{marginTop:16,textAlign:"center"}}>
           {mode==="login"? <>Pas encore de compte ? <span className="link" onClick={()=>{setMode("signup");setMsg("");}}>S'inscrire</span></>
                          : <>Déjà inscrit ? <span className="link" onClick={()=>{setMode("login");setMsg("");}}>Se connecter</span></>}
         </p>
       </div>
-      <p className="mut" style={{textAlign:"center",marginTop:14,fontSize:12}}>L'administrateur (OCI) se connecte avec le même formulaire ; son accès admin est activé côté base.</p>
+      <p className="mut" style={{textAlign:"center",marginTop:14,fontSize:12}}>Connexion par nom d'entreprise — aucun e-mail requis. L'accès administrateur (OCI) est activé côté base.</p>
     </div>
   </div>;
 }
@@ -188,7 +213,7 @@ function SupplierApp({session,profile,onLogout}){
 
   const load=useCallback(async()=>{
     setLoading(true);
-    const {data:fd}=await sb.from("formations").select("*");
+    const {data:fd}=await sb.from("formations").select("*").eq("a_coter",true);
     const {data:sd}=await sb.from("submissions").select("*").eq("supplier_id",uid);
     setForms(fd||[]); setSubs(sd||[]); setLoading(false);
   },[uid]);
@@ -202,7 +227,7 @@ function SupplierApp({session,profile,onLogout}){
   return <div>
     <Topbar sub={"Prestataire : "+company} right={<button className="btn ghost sm" onClick={onLogout}>Déconnexion</button>}/>
     <div className="wrap">
-      <div className="banner">🔒 Confidentialité garantie au niveau base de données : vous ne voyez que <b>vos</b> soumissions. Les offres des autres prestataires vous sont totalement inaccessibles.</div>
+      <div className="banner">🔒 Confidentialité garantie côté base de données : vous ne voyez que <b>vos</b> soumissions. Les offres des autres prestataires vous sont totalement inaccessibles.</div>
       {loading? <p className="mut"><span className="spin"/> Chargement…</p> : <>
       <div className="row" style={{alignItems:"center",marginBottom:16}}>
         <div><div className="stat" style={{color:"var(--or)"}}>{subs.length}<span style={{fontSize:15,color:"var(--g4)"}}> / {forms.length}</span></div>
@@ -258,8 +283,8 @@ function SubmitModal({f,uid,company,existing,onClose,onSaved}){
   }
   const Drop=({label,file,cur,set})=> <div className="field">
     <label>{label}{cur&&!file&&<span className="mut"> · actuel : {cur}</span>}</label>
-    <label className="drop">{file?("📎 "+file.name):(cur?"Remplacer le fichier…":"Cliquez pour joindre un PDF")}
-      <input type="file" accept=".pdf,.doc,.docx,.xlsx,.zip" style={{display:"none"}} onChange={e=>set(e.target.files[0]||null)}/></label></div>;
+    <label className="drop">{file?("📎 "+file.name):(cur?"Remplacer le fichier…":"Cliquez pour joindre le fichier")}
+      <input type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.zip,.rar,.png,.jpg" style={{display:"none"}} onChange={e=>set(e.target.files[0]||null)}/></label></div>;
 
   return <div className="modal-bg" onClick={onClose}><div className="modal" onClick={e=>e.stopPropagation()}>
     <div style={{display:"flex",gap:8,alignItems:"center",marginBottom:4}}><span className="pill lotb">{f.lot}</span><b>{f.num}</b></div>
@@ -308,7 +333,6 @@ function Tree({forms,subs,onChange}){
   const [open,setOpen]=useState({}); const [openF,setOpenF]=useState({});
   const lots=[...new Set(forms.map(f=>f.lot))].sort();
   const titre=Object.fromEntries(forms.map(f=>[f.lot,f.lot_titre]));
-  const fByNum=Object.fromEntries(forms.map(f=>[f.num,f]));
   const byNum={}; subs.forEach(s=>{(byNum[s.formation_num]=byNum[s.formation_num]||[]).push(s);});
   const participants=new Set(subs.map(s=>s.company_name)).size;
 
@@ -326,7 +350,7 @@ function Tree({forms,subs,onChange}){
       return <div key={lot} className="card" style={{marginBottom:14,overflow:"hidden"}}>
         <div style={{padding:"14px 18px",display:"flex",alignItems:"center",gap:10,cursor:"pointer",background:"var(--bk)",color:"#fff"}} onClick={()=>setOpen(o=>({...o,[lot]:!o[lot]}))}>
           <span style={{color:"var(--or)"}}>{open[lot]?"▼":"▶"}</span>
-          <b style={{color:"var(--or)"}}>{lot}</b> — {titre[lot]}
+          <b style={{color:"var(--or)"}}>{titre[lot]||lot}</b>
           <span style={{marginLeft:"auto",fontSize:13,opacity:.8}}>{items.length} formations · {cnt} offres</span>
         </div>
         {open[lot] && <div style={{padding:"6px 10px 12px"}}>
@@ -346,7 +370,7 @@ function Tree({forms,subs,onChange}){
                     <td>{s.fin_path?<a className="dl" onClick={()=>open1(s.fin_path,`${f.num}_${safe(s.company_name)}_fin_${s.fin_name}`)}>⬇ {(s.fin_name||"").slice(0,16)}</a>:"—"}</td>
                     <td><button className="btn sm ghost" onClick={()=>remove(s)}>✕</button></td>
                   </tr>; })}</tbody></table>
-                <button className="btn sm ghost" style={{marginTop:10}} onClick={()=>dl(wbBlob(wbFromSheets([["Comparatif",comparatifAOA(f,ss)]])),`Comparatif_${f.num}.xlsx`)}>📄 Comparatif Excel de {f.num}</button>
+                <button className="btn sm ghost" style={{marginTop:10}} onClick={()=>dl(wbBlob(wbFromWS([["Comparatif",comparatifWS(f,ss)]])),`EVAL_${f.num}.xlsx`)}>📄 Fiche d'évaluation Excel — {f.num}</button>
               </div>}
             </div>; })}
         </div>}
@@ -367,7 +391,7 @@ function Budgets({forms,subs,onSaved}){
     }catch(e){ setMsg("⚠ "+e.message); } setBusy(false);
   }
   return <div>
-    <div className="banner">Le budget est la <b>référence de notation</b> du coût (note = 6). Moins cher → la note monte vers 10 ; plus cher → elle descend vers 1. Les valeurs pré-chargées viennent du plan de formation ; modifiez-les si besoin.</div>
+    <div className="banner">Le budget est la <b>référence de notation</b> du coût (note = 6). Moins cher → la note monte vers 10 ; plus cher → elle descend vers 1. Les valeurs sont pré-chargées depuis le plan de formation ; modifiez-les si besoin.</div>
     <div className="row" style={{alignItems:"center",marginBottom:14}}>
       <span className="mut">{forms.filter(f=>f.budget).length}/{forms.length} budgets renseignés</span>
       <input className="search" style={{marginLeft:"auto"}} placeholder="Rechercher…" value={q} onChange={e=>setQ(e.target.value)}/>
@@ -377,8 +401,8 @@ function Budgets({forms,subs,onSaved}){
     <div className="card" style={{overflow:"hidden"}}>
       <table><thead><tr><th style={{width:55}}>N°</th><th style={{width:70}}>Lot</th><th>Intitulé</th><th style={{width:180}}>Budget HT (FCFA)</th><th style={{width:110}}>Offres reçues</th></tr></thead>
       <tbody>{list.map(f=><tr key={f.num}>
-        <td><b>{f.num}</b></td><td><span className="pill lotb" style={{fontSize:10}}>{f.lot}</span></td>
-        <td style={{fontSize:12}}>{f.intitule}</td>
+        <td><b>{f.num}</b>{f.a_coter===false&&<span className="mut" title="Non soumise aux fournisseurs"> ⃠</span>}</td><td><span className="pill lotb" style={{fontSize:10}}>{f.lot}</span></td>
+        <td style={{fontSize:12}}>{f.intitule}{f.a_coter===false&&<span className="mut"> · (non cotée)</span>}</td>
         <td><input type="number" value={val(f)} onChange={e=>setEdit(x=>({...x,[f.num]:e.target.value}))} placeholder="—"/></td>
         <td className="mut">{cntByNum[f.num]||0}</td>
       </tr>)}</tbody></table>
@@ -389,31 +413,32 @@ function Budgets({forms,subs,onSaved}){
 function Recap({forms,subs}){
   const [busy,setBusy]=useState(false);
   const sups=[...new Set(subs.map(s=>s.company_name))].sort();
-  const fByNum=Object.fromEntries(forms.map(f=>[f.num,f]));
-  const exportRecap=()=>dl(wbBlob(wbFromSheets([["Récap Global",recapAOA(forms,subs)]])),"Recap_Appel_Offres_2026.xlsx");
+  const exportRecap=()=>dl(wbBlob(wbFromAOA([["Récap Global",recapAOA(forms,subs)]])),"Recap_Appel_Offres_2026.xlsx");
 
   async function exportZip(){
     setBusy(true);
     try{
       const zip=new JSZip();
       const lots=[...new Set(forms.map(f=>f.lot))].sort();
+      const titre=Object.fromEntries(forms.map(f=>[f.lot,f.lot_titre]));
       const byNum={}; subs.forEach(s=>{(byNum[s.formation_num]=byNum[s.formation_num]||[]).push(s);});
       for(const lot of lots){
         const items=sortForm(forms.filter(f=>f.lot===lot && byNum[f.num]));
         if(!items.length) continue;
-        const lf=zip.folder(lot);
+        const lf=zip.folder(safe(titre[lot]||lot));
         for(const f of items){
-          const ff=lf.folder(safe(`${f.num}_${f.intitule}`).slice(0,80));
-          for(const s of byNum[f.num]){
+          const ss=byNum[f.num];
+          const ff=lf.folder(safe(`${f.num}_${f.intitule}`).slice(0,90));
+          for(const s of ss){
             const sf=ff.folder(safe(s.company_name));
             for(const [p,n,pref] of [[s.tech_path,s.tech_name,"Offre_technique_"],[s.fin_path,s.fin_name,"Offre_financiere_"]]){
               if(p){ try{ const {data}=await sb.storage.from("offres").download(p); if(data) sf.file(pref+safe(n||"fichier"),data); }catch(e){} }
             }
           }
-          ff.file(`Comparatif_${f.num}.xlsx`, wbBlob(wbFromSheets([["Comparatif",comparatifAOA(f,byNum[f.num])]])));
+          ff.file(`EVAL_${f.num}_${safe(f.intitule).slice(0,50)}.xlsx`, wbBlob(wbFromWS([["Comparatif",comparatifWS(f,ss)]])));
         }
       }
-      zip.file("RECAP_GLOBAL.xlsx", wbBlob(wbFromSheets([["Récap Global",recapAOA(forms,subs)]])));
+      zip.file("RECAP_GLOBAL.xlsx", wbBlob(wbFromAOA([["Récap Global",recapAOA(forms,subs)]])));
       dl(await zip.generateAsync({type:"blob"}),"Archive_AppelOffres_Formations_2026.zip");
     }catch(e){ alert("Erreur ZIP : "+e.message); }
     setBusy(false);
@@ -428,7 +453,7 @@ function Recap({forms,subs}){
       </div>
       <div className="card" style={{padding:18}}>
         <h3 style={{marginBottom:6}}>🗂 Archive ZIP complète</h3>
-        <p className="mut" style={{marginBottom:14,fontSize:13}}>Arborescence LOT → Bx_Intitulé → Prestataire (offres) + comparatif par formation + récap global.</p>
+        <p className="mut" style={{marginBottom:14,fontSize:13}}>Arborescence LOT → Bx_Intitulé → Prestataire (offres) + fiche d'évaluation par formation + récap global.</p>
         <button className="btn dark" style={{width:"100%"}} onClick={exportZip} disabled={busy||!subs.length}>{busy?<span className="spin"/>:"Générer & télécharger le ZIP"}</button>
       </div>
     </div>
@@ -437,7 +462,7 @@ function Recap({forms,subs}){
       <table><thead><tr><th>N°</th><th>Lot</th><th>Intitulé</th><th>Budget HT</th>{sups.map(s=><th key={s}>{s}</th>)}</tr></thead>
       <tbody>{sortForm(forms).map(f=><tr key={f.num}>
         <td><b>{f.num}</b></td><td><span className="pill lotb" style={{fontSize:10}}>{f.lot}</span></td>
-        <td style={{fontSize:12}}>{f.intitule.slice(0,42)}</td>
+        <td style={{fontSize:12}}>{(f.intitule||"").slice(0,42)}</td>
         <td>{f.budget?fmt(f.budget):"—"}</td>
         {sups.map(sp=>{ const s=subs.find(x=>x.formation_num===f.num&&x.company_name===sp); return <td key={sp}>{s?fmt(s.montant_ht):"—"}</td>; })}
       </tr>)}</tbody></table>
@@ -467,9 +492,9 @@ function App(){
   },[session]);
 
   if(CONFIGURED && !sb) return <div><Topbar sub="Erreur de chargement"/><div className="center"><div className="banner">
-    ⚠️ <b>La librairie Supabase n'a pas pu se charger.</b><br/>Cause probable : connexion internet instable, ou un bloqueur de publicités / extension qui bloque les CDN. Rechargez la page, et si besoin désactivez le bloqueur pour ce site.</div></div></div>;
+    ⚠️ <b>La librairie Supabase n'a pas pu se charger.</b><br/>Cause probable : connexion instable, ou un bloqueur de publicités / extension qui bloque les CDN. Rechargez la page (Ctrl+F5).</div></div></div>;
   if(!CONFIGURED) return <div><Topbar sub="Configuration requise"/><div className="center"><div className="banner">
-    ⚙️ <b>Application non configurée.</b><br/>Ouvrez ce fichier et renseignez <code>SUPABASE_URL</code> et <code>SUPABASE_ANON_KEY</code> en haut du script (voir <b>GUIDE_DEPLOIEMENT.md</b>).</div></div></div>;
+    ⚙️ <b>Application non configurée.</b><br/>Renseignez <code>SUPABASE_URL</code> et <code>SUPABASE_ANON_KEY</code> en haut du script (voir <b>GUIDE_DEPLOIEMENT.md</b>).</div></div></div>;
   if(!ready) return <div><Topbar sub="Chargement…"/><div className="center" style={{textAlign:"center"}}><span className="spin"/></div></div>;
   if(!session) return <AuthScreen/>;
   const logout=()=>sb.auth.signOut();
@@ -477,59 +502,36 @@ function App(){
     ? <AdminApp session={session} profile={profile} onLogout={logout}/>
     : <SupplierApp session={session} profile={profile} onLogout={logout}/>;
 }
-/* Montage compatible React 18 (createRoot) ET React 17 (render) :
-   si le CDN/cache sert une version sans createRoot, on bascule sur render
-   au lieu de planter avec « ReactDOM.createRoot is not a function ». */
+
+/* Montage compatible React 18 (createRoot) ET React 17 (render) */
 (function mount(){
-  const el = document.getElementById("root");
+  const el=document.getElementById("root");
   try{
-    if(ReactDOM && typeof ReactDOM.createRoot === "function"){
-      ReactDOM.createRoot(el).render(<App/>);
-    }else if(ReactDOM && typeof ReactDOM.render === "function"){
-      ReactDOM.render(<App/>, el);
-    }else{
-      throw new Error("ReactDOM indisponible (ni createRoot ni render).");
-    }
-  }catch(e){
-    if(window.__showFatal) window.__showFatal(e);
-    throw e;
-  }
+    if(ReactDOM&&typeof ReactDOM.createRoot==="function") ReactDOM.createRoot(el).render(<App/>);
+    else if(ReactDOM&&typeof ReactDOM.render==="function") ReactDOM.render(<App/>,el);
+    else throw new Error("ReactDOM indisponible (ni createRoot ni render).");
+  }catch(e){ if(window.__showFatal) window.__showFatal(e); throw e; }
 })();
 </script>
 <script>
 (function(){
-  var lastError = null;
-  function box(inner){
-    var r=document.getElementById('root'); if(!r) return;
-    r.innerHTML='<div style="max-width:640px;margin:60px auto;font-family:system-ui,sans-serif;padding:22px;border:1px solid #fed7aa;background:#fff7ed;color:#9a3412;border-radius:12px">'
-      +'<h3 style="margin:0 0 10px">L\'application ne s\'est pas affichee</h3>'+inner+'</div>';
-  }
-  // Affiche le VRAI message d'erreur au lieu de le cacher.
-  window.__showFatal=function(e){
-    var msg=(e && (e.message||e))+''; lastError=msg;
-    box('<p style="margin:0 0 10px">Une erreur JavaScript est survenue :</p>'
-      +'<pre style="white-space:pre-wrap;background:#fff;border:1px solid #fed7aa;border-radius:8px;padding:10px;margin:0 0 10px;font-size:13px">'+msg.replace(/</g,'&lt;')+'</pre>'
-      +'<p style="margin:0;font-size:13px">Si le message mentionne <b>createRoot</b> ou une librairie, c\'est un probleme de chargement (cache/CDN/bloqueur). Rechargez avec <b>Ctrl+F5</b> pour vider le cache.</p>');
-  };
-  window.addEventListener('error',function(ev){ if(ev && ev.message) lastError=ev.message; });
-  window.addEventListener('unhandledrejection',function(ev){ if(ev && ev.reason) lastError=(ev.reason.message||ev.reason)+''; });
-
-  window.addEventListener('load', function(){
-    setTimeout(function(){
-      var r=document.getElementById('root');
-      if(r && r.innerHTML.trim()===''){
-        var need={React:window.React,ReactDOM:window.ReactDOM,Babel:window.Babel,'supabase-js':window.supabase,XLSX:window.XLSX,JSZip:window.JSZip};
-        var miss=Object.keys(need).filter(function(k){return !need[k];});
-        if(miss.length){
-          box('<p style="margin:0">Librairies non chargees : <b>'+miss.join(', ')+'</b>.<br><br>Cause la plus probable : connexion instable ou un bloqueur de publicites/extension qui bloque les liens CDN. Rechargez la page (Ctrl+F5), ou desactivez le bloqueur pour ce site, puis reessayez.</p>');
-        }else if(lastError){
-          window.__showFatal(lastError);
-        }else{
-          box('<p style="margin:0">Une erreur JavaScript est survenue. Ouvrez la console (touche <b>F12</b> &gt; onglet <b>Console</b>) et transmettez le message en rouge.</p>');
-        }
-      }
-    },2500);
-  });
+  var lastError=null;
+  function box(inner){ var r=document.getElementById('root'); if(!r)return;
+    r.innerHTML='<div style="max-width:640px;margin:60px auto;font-family:system-ui,sans-serif;padding:22px;border:1px solid #fed7aa;background:#fff7ed;color:#9a3412;border-radius:12px"><h3 style="margin:0 0 10px">L\'application ne s\'est pas affichee</h3>'+inner+'</div>'; }
+  window.__showFatal=function(e){ var msg=(e&&(e.message||e))+''; lastError=msg;
+    box('<p style="margin:0 0 10px">Une erreur JavaScript est survenue :</p><pre style="white-space:pre-wrap;background:#fff;border:1px solid #fed7aa;border-radius:8px;padding:10px;margin:0 0 10px;font-size:13px">'+msg.replace(/</g,'&lt;')+'</pre><p style="margin:0;font-size:13px">Rechargez avec <b>Ctrl+F5</b> pour vider le cache.</p>'); };
+  window.addEventListener('error',function(ev){ if(ev&&ev.message) lastError=ev.message; });
+  window.addEventListener('unhandledrejection',function(ev){ if(ev&&ev.reason) lastError=(ev.reason.message||ev.reason)+''; });
+  window.addEventListener('load',function(){ setTimeout(function(){
+    var r=document.getElementById('root');
+    if(r&&r.innerHTML.trim()===''){
+      var need={React:window.React,ReactDOM:window.ReactDOM,Babel:window.Babel,'supabase-js':window.supabase,XLSX:window.XLSX,JSZip:window.JSZip};
+      var miss=Object.keys(need).filter(function(k){return !need[k];});
+      if(miss.length) box('<p style="margin:0">Librairies non chargees : <b>'+miss.join(', ')+'</b>.<br><br>Connexion instable ou bloqueur de publicites/extension bloquant les CDN. Rechargez (Ctrl+F5) ou desactivez le bloqueur pour ce site.</p>');
+      else if(lastError) window.__showFatal(lastError);
+      else box('<p style="margin:0">Une erreur JavaScript est survenue. Ouvrez la console (F12) et transmettez le message en rouge.</p>');
+    }
+  },2500); });
 })();
 </script>
 </body>
