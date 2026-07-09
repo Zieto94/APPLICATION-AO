@@ -473,32 +473,38 @@ function Recap({forms,subs}){
 
 /* ============ ROOT ============ */
 function App(){
-  const [session,setSession]=useState(null);
+  const [session,setSession]=useState(undefined); // undefined = session en cours de vérification
   const [profile,setProfile]=useState(null);
-  const [ready,setReady]=useState(false);
 
   useEffect(()=>{
     if(!CONFIGURED) return;
-    sb.auth.getSession().then(({data})=>setSession(data.session));
-    const {data:sub}=sb.auth.onAuthStateChange((_e,s)=>{ setSession(s); if(!s) setProfile(null); });
+    sb.auth.getSession().then(({data})=>setSession(data.session||null));
+    const {data:sub}=sb.auth.onAuthStateChange((_e,s)=>{ setSession(s||null); if(!s) setProfile(null); });
     return ()=>sub.subscription.unsubscribe();
   },[]);
 
   useEffect(()=>{
-    if(!session){ setReady(true); return; }
-    setReady(false);
-    sb.from("profiles").select("*").eq("id",session.user.id).single()
-      .then(({data})=>{ setProfile(data||{company_name:session.user.email,role:"supplier"}); setReady(true); });
+    if(!session){ return; }
+    let alive=true;
+    const fallback={company_name:session.user.email,role:"supplier"};
+    sb.from("profiles").select("*").eq("id",session.user.id).single().then(
+      ({data})=>{ if(alive) setProfile(data||fallback); },
+      ()=>{ if(alive) setProfile(fallback); }
+    );
+    return ()=>{ alive=false; };
   },[session]);
+
+  const Spin=sub=><div><Topbar sub={sub}/><div className="center" style={{textAlign:"center"}}><span className="spin"/></div></div>;
 
   if(CONFIGURED && !sb) return <div><Topbar sub="Erreur de chargement"/><div className="center"><div className="banner">
     ⚠️ <b>La librairie Supabase n'a pas pu se charger.</b><br/>Cause probable : connexion instable, ou un bloqueur de publicités / extension qui bloque les CDN. Rechargez la page (Ctrl+F5).</div></div></div>;
   if(!CONFIGURED) return <div><Topbar sub="Configuration requise"/><div className="center"><div className="banner">
     ⚙️ <b>Application non configurée.</b><br/>Renseignez <code>SUPABASE_URL</code> et <code>SUPABASE_ANON_KEY</code> en haut du script (voir <b>GUIDE_DEPLOIEMENT.md</b>).</div></div></div>;
-  if(!ready) return <div><Topbar sub="Chargement…"/><div className="center" style={{textAlign:"center"}}><span className="spin"/></div></div>;
-  if(!session) return <AuthScreen/>;
+  if(session===undefined) return Spin("Chargement…");   // on vérifie la session
+  if(!session) return <AuthScreen/>;                    // pas connecté
+  if(!profile) return Spin("Chargement du profil…");    // connecté, profil en cours de chargement
   const logout=()=>sb.auth.signOut();
-  return profile?.role==="admin"
+  return profile.role==="admin"
     ? <AdminApp session={session} profile={profile} onLogout={logout}/>
     : <SupplierApp session={session} profile={profile} onLogout={logout}/>;
 }
