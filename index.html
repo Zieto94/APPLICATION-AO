@@ -67,11 +67,20 @@ const {useState,useEffect,useCallback} = React;
 /* ============================================================
    >>> CONFIGURATION SUPABASE (voir GUIDE_DEPLOIEMENT.md) <<<
    ============================================================ */
-const SUPABASE_URL      = "https://hehzubjnsnihfzzbgwyd.supabase.co";
+const SUPABASE_PROJECT  = "https://hehzubjnsnihfzzbgwyd.supabase.co"; // projet Supabase (accès direct)
+/* Contournement des blocages réseau (ex. réseau OCI qui bloque supabase.co) :
+   une fois l'app HÉBERGÉE (https), on route Supabase via /supabase/* (proxy Netlify
+   défini dans le fichier _redirects) — le navigateur ne contacte alors que votre
+   propre domaine. En ouverture LOCALE (file://), on garde l'accès direct. */
+const SUPABASE_URL      = (location.protocol === "https:") ? (location.origin + "/supabase") : SUPABASE_PROJECT;
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhlaHp1Ympuc25paGZ6emJnd3lkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM2MDQwNzAsImV4cCI6MjA5OTE4MDA3MH0.H1QC85y7KLqcQP3mm2ZV_xva8USNWni-x_dtMk_hoEg";
 /* Domaine technique interne : la connexion se fait par NOM D'ENTREPRISE,
    converti en e-mail interne <slug>@ao.local (jamais affiché à l'utilisateur). */
 const MAIL_DOMAIN = "ao.local";
+/* Sociétés qui ouvrent l'espace ADMIN (en plus du rôle 'admin' en base).
+   ⚠️ Ceci n'ouvre que l'ÉCRAN admin. Pour voir les données de TOUS les
+   prestataires, il faut AUSSI passer le rôle en base une fois (voir GUIDE). */
+const ADMIN_COMPANIES = ["ORANGE"];
 /* ============================================================ */
 
 const CONFIGURED = !SUPABASE_URL.includes("VOTRE-PROJET") && !SUPABASE_ANON_KEY.includes("VOTRE_CLE");
@@ -504,7 +513,9 @@ function App(){
   if(!session) return <AuthScreen/>;                    // pas connecté
   if(!profile) return Spin("Chargement du profil…");    // connecté, profil en cours de chargement
   const logout=()=>sb.auth.signOut();
-  return profile.role==="admin"
+  const isAdmin = profile.role==="admin"
+    || ADMIN_COMPANIES.map(x=>x.trim().toLowerCase()).includes((profile.company_name||"").trim().toLowerCase());
+  return isAdmin
     ? <AdminApp session={session} profile={profile} onLogout={logout}/>
     : <SupplierApp session={session} profile={profile} onLogout={logout}/>;
 }

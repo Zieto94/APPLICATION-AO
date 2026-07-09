@@ -59,12 +59,23 @@ interne), il ne faut donc pas de validation d'e-mail :
 
 ## 6. Mettre l'application en ligne (pour les prestataires)
 
-`index.html` est autonome. Hébergement gratuit le plus simple :
+⚠️ **Déployez un DOSSIER contenant `index.html` ET `_redirects`** (les deux ensemble).
+Le fichier `_redirects` fait passer les appels Supabase par votre domaine Netlify
+(proxy), ce qui **contourne les blocages réseau** (ex. réseau OCI qui bloque
+`supabase.co`). Sans lui, la connexion échoue avec « NetworkError ».
 
-- **Netlify Drop** : https://app.netlify.com/drop → glisser `index.html` → lien public.
-- ou **GitHub Pages**, **Vercel**, ou tout hébergeur de fichiers statiques.
+**Netlify Drop :**
+1. Mettez `index.html` et `_redirects` dans un **même dossier** (ex. `appel-offres`).
+2. Allez sur https://app.netlify.com/drop → glissez **le dossier** (pas juste le fichier).
+3. Vous obtenez un lien public `https://xxxx.netlify.app`.
+4. Testez : ouvrez le lien → connectez-vous. (L'app appelle `/supabase/*`, relayé vers Supabase.)
+5. Communiquez le lien aux ~15 prestataires.
 
-Communiquer le lien aux ~15 prestataires.
+> Le proxy fonctionne aussi sur **Vercel**/**Cloudflare Pages** (fichier de config
+> équivalent). Sur GitHub Pages il n'y a pas de proxy → à éviter si le réseau bloque Supabase.
+
+> Vérification rapide du proxy : ouvrez `https://votre-site.netlify.app/supabase/auth/v1/health`
+> → doit afficher `{"name":"GoTrue",...}`. Si oui, le contournement est actif.
 
 ---
 

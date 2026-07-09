@@ -1,0 +1,4 @@
+# Proxy Netlify : route /supabase/* vers le projet Supabase (côté serveur).
+# Le navigateur ne contacte que votre domaine netlify.app -> contourne les
+# blocages réseau qui visent supabase.co. Le 200 = proxy (rewrite), pas redirection.
+/supabase/*  https://hehzubjnsnihfzzbgwyd.supabase.co/:splat  200
