@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Appel d'Offres — Plan de Formation 2026 | Orange CI</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.6/babel.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  :root{--or:#ff7900;--or-d:#e56e00;--bk:#0a0a0a;--g1:#f4f4f5;--g2:#e4e4e7;--g3:#a1a1aa;--g4:#52525b;--ok:#16a34a;--warn:#dc2626}
+  body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--g1);color:var(--bk);line-height:1.45}
+  #root{min-height:100vh}
+  button{font-family:inherit;cursor:pointer;border:none;border-radius:8px;font-weight:600;transition:.15s}
+  input,select{font-family:inherit;font-size:14px;padding:10px 12px;border:1px solid var(--g2);border-radius:8px;width:100%;background:#fff}
+  input:focus,select:focus{outline:2px solid var(--or);border-color:var(--or)}
+  .btn{background:var(--or);color:#fff;padding:11px 18px;font-size:14px}
+  .btn:hover{background:var(--or-d)}
+  .btn.dark{background:var(--bk)} .btn.dark:hover{background:#27272a}
+  .btn.ghost{background:#fff;color:var(--bk);border:1px solid var(--g2)} .btn.ghost:hover{border-color:var(--g4)}
+  .btn.sm{padding:7px 12px;font-size:13px}
+  .btn:disabled{opacity:.45;cursor:not-allowed}
+  .card{background:#fff;border:1px solid var(--g2);border-radius:12px}
+  .topbar{background:var(--bk);color:#fff;padding:14px 22px;display:flex;align-items:center;gap:14px;position:sticky;top:0;z-index:20}
+  .logo{width:34px;height:34px;background:var(--or);border-radius:7px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:18px;color:#000}
+  .wrap{max-width:1180px;margin:0 auto;padding:22px}
+  .pill{display:inline-block;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:700;letter-spacing:.3px}
+  .lotb{background:var(--bk);color:var(--or)}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{padding:9px 11px;text-align:left;border-bottom:1px solid var(--g2)}
+  th{background:var(--g1);font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--g4)}
+  tr:hover td{background:#fffaf3}
+  .tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:18px}
+  .tab{padding:9px 16px;border-radius:8px;background:#fff;border:1px solid var(--g2);font-weight:600;font-size:14px}
+  .tab.on{background:var(--bk);color:#fff;border-color:var(--bk)}
+  .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;z-index:50;padding:16px}
+  .modal{background:#fff;border-radius:14px;max-width:560px;width:100%;max-height:90vh;overflow:auto;padding:26px}
+  .row{display:flex;gap:12px} .col{flex:1}
+  .mut{color:var(--g4);font-size:13px}
+  .field label{display:block;font-size:13px;font-weight:600;margin-bottom:6px}
+  .field{margin-bottom:16px}
+  .badge-ok{color:var(--ok);font-weight:700}
+  .drop{border:2px dashed var(--g2);border-radius:10px;padding:14px;text-align:center;font-size:13px;color:var(--g4);cursor:pointer;display:block}
+  .drop:hover{border-color:var(--or);color:var(--or)}
+  .note-chip{font-weight:800;padding:3px 8px;border-radius:6px;font-size:13px}
+  .banner{background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;padding:12px 15px;border-radius:10px;font-size:13px;margin-bottom:16px}
+  .banner.ok{background:#f0fdf4;border-color:#bbf7d0;color:#166534}
+  .grid-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px}
+  .stat{font-size:26px;font-weight:800}
+  .search{max-width:340px}
+  a.dl{color:var(--or);font-weight:600;text-decoration:none;font-size:13px;cursor:pointer}
+  a.dl:hover{text-decoration:underline}
+  .spin{display:inline-block;width:16px;height:16px;border:2px solid var(--g2);border-top-color:var(--or);border-radius:50%;animation:sp .7s linear infinite}
+  @keyframes sp{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const {useState,useEffect,useCallback} = React;
+
+/* ---------- DONNÉES : 78 formations (num, lot, titre de lot, intitulé, budget, à coter) ---------- */
+const FORMATIONS = [{"num":"B1","lot":"LOT 1","lotTitre":"Data, Tech & Cybersécurité","intitule":"Advanced Penetration Testing, Exploit Writing, and Ethical Hacking","budget":1300000,"aCoter":true},{"num":"B2","lot":"LOT 1","lotTitre":"Data, Tech & Cybersécurité","intitule":"Agent IA (Déploiement plateforme, architecture, configuration, utilisation)","budget":6400000,"aCoter":true},{"num":"B3","lot":"LOT 1","lotTitre":"Data, Tech & Cybersécurité","intitule":"Apache KAFKA Avancé","budget":5100000,"aCoter":true},{"num":"B4","lot":"LOT 1","lotTitre":"Data, Tech & Cybersécurité","intitule":"Apache NIFI Avancé (Déploiement plateforme, architecture, résilience , configuration, utilisation)","budget":5100000,"aCoter":true},{"num":"B5","lot":"LOT 1","lotTitre":"Data, Tech & Cybersécurité","intitule":"Architecture Core CS et PS","budget":6000000,"aCoter":true},{"num":"B6","lot":"LOT 1","lotTitre":"Data, Tech & Cybersécurité","intitule":"CCZT (Certificate of Competence in Zero Trust)","budget":13500000,"aCoter":true},{"num":"B7","lot":"LOT 1","lotTitre":"Data, Tech & Cybersécurité","intitule":"CDMP (Certificat Data management professionnel)","budget":6000000,"aCoter":true},{"num":"B8","lot":"LOT 1","lotTitre":"Data, Tech & Cybersécurité","intitule":"CSON : Ingénierie des réseaux (intégration, optimisation, contrôle)","budget":3600000,"aCoter":true},{"num":"B9","lot":"LOT 1","lotTitre":"Data, Tech & Cybersécurité","intitule":"Cerfification CISM (Advanced Information Security Manager)","budget":1250000,"aCoter":true},{"num":"B10","lot":"LOT 1","lotTitre":"Data, Tech & Cybersécurité","intitule":"Certification CEH V13 (Certified Ethical Hacker version 13)","budget":1000000,"aCoter":true},{"num":"B11","lot":"LOT 1","lotTitre":"Data, Tech & Cybersécurité","intitule":"Certification CISSP (Expert Information Systems Security Professional)","budget":1400000,"aCoter":true},{"num":"B12","lot":"LOT 1","lotTitre":"Data, Tech & Cybersécurité","intitule":"Certification Cisco CCNP","budget":4050000,"aCoter":true},{"num":"B13","lot":"LOT 1","lotTitre":"Data, Tech & Cybersécurité","intitule":"Certification F5","budget":6000000,"aCoter":true},{"num":"B14","lot":"LOT 1","lotTitre":"Data, Tech & Cybersécurité","intitule":"Certification FOA","budget":15000000,"aCoter":true},{"num":"B15","lot":"LOT 1","lotTitre":"Data, Tech & Cybersécurité","intitule":"Data analyst Associate Microsoft (PL-300)","budget":2700000,"aCoter":true},{"num":"B16","lot":"LOT 1","lotTitre":"Data, Tech & Cybersécurité","intitule":"Développement API ET ROBOFRAMEWORK","budget":6000000,"aCoter":true},{"num":"B17","lot":"LOT 1","lotTitre":"Data, Tech & Cybersécurité","intitule":"Développement FULL STACK WEB APIs : AngularJs + SpringBoot","budget":700000,"aCoter":true},{"num":"B18","lot":"LOT 1","lotTitre":"Data, Tech & Cybersécurité","intitule":"Fondamentaux de la norme ANSI/BICSI-003","budget":9200000,"aCoter":true},{"num":"B19","lot":"LOT 1","lotTitre":"Data, Tech & Cybersécurité","intitule":"Fondamentaux de la norme TIA-943","budget":9200000,"aCoter":true},{"num":"B20","lot":"LOT 1","lotTitre":"Data, Tech & Cybersécurité","intitule":"Formation ArcGIS Entreprise","budget":1500000,"aCoter":true},{"num":"B21","lot":"LOT 1","lotTitre":"Data, Tech & Cybersécurité","intitule":"Formation Logiciel Tableau Software","budget":2100000,"aCoter":true},{"num":"B22","lot":"LOT 1","lotTitre":"Data, Tech & Cybersécurité","intitule":"Formation en Data Management et Gouvernance des données","budget":750000,"aCoter":true},{"num":"B23","lot":"LOT 1","lotTitre":"Data, Tech & Cybersécurité","intitule":"Formation et Certification DevSecOps Practitioner","budget":14000000,"aCoter":true},{"num":"B24","lot":"LOT 1","lotTitre":"Data, Tech & Cybersécurité","intitule":"Graph Mining","budget":2400000,"aCoter":true},{"num":"B25","lot":"LOT 1","lotTitre":"Data, Tech & Cybersécurité","intitule":"Hacking et sécurisation des APIs","budget":5200000,"aCoter":true},{"num":"B26","lot":"LOT 1","lotTitre":"Data, Tech & Cybersécurité","intitule":"IA Générative & LLMs","budget":3000000,"aCoter":true},{"num":"B27","lot":"LOT 1","lotTitre":"Data, Tech & Cybersécurité","intitule":"IA: Machine learning","budget":8000000,"aCoter":true},{"num":"B28","lot":"LOT 1","lotTitre":"Data, Tech & Cybersécurité","intitule":"IP Networks QoS & Performance Management","budget":4800000,"aCoter":true},{"num":"B29","lot":"LOT 1","lotTitre":"Data, Tech & Cybersécurité","intitule":"ISTQB Foundation","budget":3000000,"aCoter":true},{"num":"B30","lot":"LOT 1","lotTitre":"Data, Tech & Cybersécurité","intitule":"Marketing opérationnelle ICT","budget":4800000,"aCoter":true},{"num":"B31","lot":"LOT 1","lotTitre":"Data, Tech & Cybersécurité","intitule":"Microsoft Azure","budget":2400000,"aCoter":true},{"num":"B32","lot":"LOT 1","lotTitre":"Data, Tech & Cybersécurité","intitule":"Offre sur mesure : élaboration Offre complexe et amélioration du time to response","budget":6600000,"aCoter":true},{"num":"B33","lot":"LOT 1","lotTitre":"Data, Tech & Cybersécurité","intitule":"Optical Network Engineering: Quality of Service in IPoWDM/OTN Network","budget":4500000,"aCoter":true},{"num":"B34","lot":"LOT 1","lotTitre":"Data, Tech & Cybersécurité","intitule":"POWER BI","budget":2100000,"aCoter":true},{"num":"B35","lot":"LOT 1","lotTitre":"Data, Tech & Cybersécurité","intitule":"Power BI","budget":2100000,"aCoter":true},{"num":"B36","lot":"LOT 1","lotTitre":"Data, Tech & Cybersécurité","intitule":"SANS FOR","budget":26000000,"aCoter":true},{"num":"B37","lot":"LOT 1","lotTitre":"Data, Tech & Cybersécurité","intitule":"TOGAF 9.2","budget":6000000,"aCoter":true},{"num":"B38","lot":"LOT 2","lotTitre":"Management, RH & Gouvernance","intitule":"AGILYTAE/ Construire et développer une culture d'entreprise forte","budget":800000,"aCoter":true},{"num":"B39","lot":"LOT 2","lotTitre":"Management, RH & Gouvernance","intitule":"Certification BPM (Business Process Mapping/Management)","budget":2000000,"aCoter":true},{"num":"B40","lot":"LOT 2","lotTitre":"Management, RH & Gouvernance","intitule":"Certification HRBP","budget":2250000,"aCoter":true},{"num":"B41","lot":"LOT 2","lotTitre":"Management, RH & Gouvernance","intitule":"Certification Strategy@HEC Paris","budget":2500000,"aCoter":false},{"num":"B42","lot":"LOT 2","lotTitre":"Management, RH & Gouvernance","intitule":"Diversité et inclusion : bâtir une entreprise plus forte et plus juste","budget":1000000,"aCoter":true},{"num":"B43","lot":"LOT 2","lotTitre":"Management, RH & Gouvernance","intitule":"Droit du travail","budget":2300000,"aCoter":true},{"num":"B44","lot":"LOT 2","lotTitre":"Management, RH & Gouvernance","intitule":"Formation Business Model & Innovation: Odyssey 3.14","budget":3200000,"aCoter":true},{"num":"B45","lot":"LOT 2","lotTitre":"Management, RH & Gouvernance","intitule":"Formation Pilotage de portefeuilles projet","budget":1400000,"aCoter":true},{"num":"B46","lot":"LOT 2","lotTitre":"Management, RH & Gouvernance","intitule":"Gestion prévisionelle des emplois et des compétences","budget":1400000,"aCoter":true},{"num":"B47","lot":"LOT 2","lotTitre":"Management, RH & Gouvernance","intitule":"Marketing RH et Marque Employeur","budget":2100000,"aCoter":true},{"num":"B48","lot":"LOT 2","lotTitre":"Management, RH & Gouvernance","intitule":"MoP® – Management of Portfolios (AXELOS)","budget":4200000,"aCoter":true},{"num":"B49","lot":"LOT 2","lotTitre":"Management, RH & Gouvernance","intitule":"Projet - Assurance Qualité Projet","budget":600000,"aCoter":true},{"num":"B50","lot":"LOT 2","lotTitre":"Management, RH & Gouvernance","intitule":"Rôle et posture du chargé de formation dans un cadre normé","budget":1400000,"aCoter":true},{"num":"B51","lot":"LOT 2","lotTitre":"Management, RH & Gouvernance","intitule":"Soutien commercial des équipes","budget":9750000,"aCoter":true},{"num":"B52","lot":"LOT 3","lotTitre":"Business, Client & Marketing","intitule":"Analytics Web and Social Media","budget":5100000,"aCoter":true},{"num":"B53","lot":"LOT 3","lotTitre":"Business, Client & Marketing","intitule":"Certification BCEAO/HEC CEMSTRAT 1","budget":4500000,"aCoter":false},{"num":"B54","lot":"LOT 3","lotTitre":"Business, Client & Marketing","intitule":"Certification CBM","budget":600000,"aCoter":true},{"num":"B55","lot":"LOT 3","lotTitre":"Business, Client & Marketing","intitule":"Certification COPC","budget":30000000,"aCoter":false},{"num":"B56","lot":"LOT 3","lotTitre":"Business, Client & Marketing","intitule":"Certification Supply Chain","budget":5000000,"aCoter":true},{"num":"B57","lot":"LOT 3","lotTitre":"Business, Client & Marketing","intitule":"Gestion de la relation commerciale B2B","budget":20800000,"aCoter":true},{"num":"B58","lot":"LOT 3","lotTitre":"Business, Client & Marketing","intitule":"L'expérience client & l'IA","budget":9300000,"aCoter":true},{"num":"B59","lot":"LOT 3","lotTitre":"Business, Client & Marketing","intitule":"La gestion des clients à valeur","budget":2250000,"aCoter":true},{"num":"B60","lot":"LOT 3","lotTitre":"Business, Client & Marketing","intitule":"Management stratégique du Route to Market","budget":3000000,"aCoter":true},{"num":"B61","lot":"LOT 3","lotTitre":"Business, Client & Marketing","intitule":"Marketing de l'innovation","budget":3000000,"aCoter":true},{"num":"B62","lot":"LOT 3","lotTitre":"Business, Client & Marketing","intitule":"Stratégie média","budget":3000000,"aCoter":true},{"num":"B63","lot":"LOT 4","lotTitre":"Finance, Conformité, Audit & Normes","intitule":"Certification CIA® (Certified Internal Auditor)","budget":5200000,"aCoter":true},{"num":"B64","lot":"LOT 4","lotTitre":"Finance, Conformité, Audit & Normes","intitule":"Contôle Interne - Prévention des fraudes internes","budget":700000,"aCoter":true},{"num":"B65","lot":"LOT 4","lotTitre":"Finance, Conformité, Audit & Normes","intitule":"Credit Management","budget":2100000,"aCoter":true},{"num":"B66","lot":"LOT 4","lotTitre":"Finance, Conformité, Audit & Normes","intitule":"Emprunts et investissements étrangers – Obligations réglementaires en Côte d’Ivoire","budget":3600000,"aCoter":true},{"num":"B67","lot":"LOT 4","lotTitre":"Finance, Conformité, Audit & Normes","intitule":"Formation - Optimiser la gestion des fournisseurs - critères Environnementaux & énergétiques de sélection et d'évaluation","budget":2800000,"aCoter":true},{"num":"B68","lot":"LOT 4","lotTitre":"Finance, Conformité, Audit & Normes","intitule":"Formation -Lead Auditeur CQI and IRCA ISO 14001 Environnement","budget":700000,"aCoter":true},{"num":"B69","lot":"LOT 4","lotTitre":"Finance, Conformité, Audit & Normes","intitule":"Formation -Lead Auditeur CQI and IRCA ISO 50001 Energie","budget":700000,"aCoter":true},{"num":"B70","lot":"LOT 4","lotTitre":"Finance, Conformité, Audit & Normes","intitule":"Formation Compliance et Gestion des risques","budget":1800000,"aCoter":true},{"num":"B71","lot":"LOT 4","lotTitre":"Finance, Conformité, Audit & Normes","intitule":"Formation sur la Conception énergétique des bâtiments & Infrastructures _ projet","budget":2800000,"aCoter":true},{"num":"B72","lot":"LOT 4","lotTitre":"Finance, Conformité, Audit & Normes","intitule":"Formation sur la norme ISO 50003 (Systèmes de management de l’énergie – Exigences pour les organismes procédant à l’audit et à la certification de systèmes de management de l’énergie)","budget":3600000,"aCoter":true},{"num":"B73","lot":"LOT 4","lotTitre":"Finance, Conformité, Audit & Normes","intitule":"Formation à la norme ISO 22301 (Management de la continuité d'activité)","budget":700000,"aCoter":true},{"num":"B74","lot":"LOT 4","lotTitre":"Finance, Conformité, Audit & Normes","intitule":"Formation à la norme ISO 27701 (Management de la protection de la vie privée)","budget":5600000,"aCoter":true},{"num":"B75","lot":"LOT 4","lotTitre":"Finance, Conformité, Audit & Normes","intitule":"Iso/ IEC 22301 Lead Implementer : continuité d'activité","budget":3000000,"aCoter":true},{"num":"B76","lot":"LOT 4","lotTitre":"Finance, Conformité, Audit & Normes","intitule":"Les achats responsables","budget":1400000,"aCoter":true},{"num":"B77","lot":"LOT 4","lotTitre":"Finance, Conformité, Audit & Normes","intitule":"Maintenance énergie dans les Data Center","budget":3250000,"aCoter":true},{"num":"B78","lot":"LOT 4","lotTitre":"Finance, Conformité, Audit & Normes","intitule":"Traitement fiscal des immobilisations","budget":2800000,"aCoter":true}];
+const LOTS = ["LOT 1","LOT 2","LOT 3","LOT 4"];
+const LOT_TITRE = {}; FORMATIONS.forEach(f=>LOT_TITRE[f.lot]=f.lotTitre);
+const ADMIN_PIN = "ORANGE2026"; // code d'accès administrateur (modifiable ici)
+
+/* ---------- STOCKAGE PERSISTANT : IndexedDB (aucun réseau requis) ---------- */
+const DB = (()=>{
+  let dbp=null;
+  function open(){
+    if(dbp) return dbp;
+    dbp=new Promise((res,rej)=>{
+      const r=indexedDB.open("appel_offres_oci",1);
+      r.onupgradeneeded=()=>{ const db=r.result;
+        if(!db.objectStoreNames.contains("subs"))  db.createObjectStore("subs");
+        if(!db.objectStoreNames.contains("files")) db.createObjectStore("files");
+        if(!db.objectStoreNames.contains("meta"))  db.createObjectStore("meta");
+      };
+      r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error);
+    });
+    return dbp;
+  }
+  const req=r=>new Promise((res,rej)=>{ r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); });
+  const os=(store,mode)=>open().then(db=>db.transaction(store,mode).objectStore(store));
+  return {
+    get:(s,k)=>os(s,"readonly").then(o=>req(o.get(k))),
+    set:(s,k,v)=>os(s,"readwrite").then(o=>req(o.put(v,k))),
+    del:(s,k)=>os(s,"readwrite").then(o=>req(o.delete(k))),
+    all:(s)=>os(s,"readonly").then(o=>new Promise((res,rej)=>{ const out=[]; const c=o.openCursor();
+      c.onsuccess=e=>{ const cur=e.target.result; if(cur){ out.push(cur.value); cur.continue(); } else res(out); };
+      c.onerror=()=>rej(c.error); }))
+  };
+})();
+
+/* ---------- Helpers ---------- */
+const slug = s => (s||"").trim().toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"").slice(0,50);
+const safe = s => (s||"").replace(/[\\/:*?"<>|\n\r]+/g,"_").replace(/\s+/g," ").trim();
+const fmt  = n => (n||n===0) ? Number(n).toLocaleString("fr-FR") : "—";
+const subKey = (num,supplier)=>`${num}::${slug(supplier)}`;
+
+/* Note « Coût de la prestation » /10 : budget = 6 ; moins cher -> vers 10 ; plus cher -> vers 1 (bornée 1..10) */
+function noteCout(montant,budget){
+  montant=+montant; budget=+budget;
+  if(!montant||!budget||montant<=0||budget<=0) return null;
+  let n = montant<=budget ? 6 + 4*(budget-montant)/budget : 6 - 5*(montant-budget)/budget;
+  return Math.round(Math.max(1,Math.min(10,n))*100)/100;
+}
+const noteColor = n => n==null?"#e4e4e7": n>=6?"#dcfce7": n>=4?"#fef9c3":"#fee2e2";
+function dl(blob,name){ const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),1500); }
+
+/* ---------- Couche données ---------- */
+async function loadBudgets(){ const saved=await DB.get("meta","budgets"); const b={}; FORMATIONS.forEach(f=>b[f.num]=f.budget); if(saved) Object.assign(b,saved); return b; }
+async function saveBudgets(b){ await DB.set("meta","budgets",b); }
+async function loadSubs(){ return (await DB.all("subs"))||[]; }
+async function saveSub(sub){ await DB.set("subs", subKey(sub.num,sub.supplier), sub); }
+async function delSub(num,supplier){ await DB.del("subs",subKey(num,supplier)); await DB.del("files",subKey(num,supplier)+"::t"); await DB.del("files",subKey(num,supplier)+"::f"); }
+async function saveFile(num,supplier,kind,blob){ await DB.set("files", subKey(num,supplier)+"::"+kind, blob); }
+async function getFile(num,supplier,kind){ return await DB.get("files", subKey(num,supplier)+"::"+kind); }
+
+/* ---------- Excel : FICHE D'ÉVALUATION d'une formation ----------
+   Reproduit le template. Seule la ligne « Coût de la prestation » est calculée
+   (Note/10 + Note pondérée = pondération × Note/10) ; le reste reste vide. */
+function comparatifAOA(f,budget,subs){
+  const crit=(lib,pond,fn)=>{ const r=["",lib,pond]; subs.forEach(s=>{ const v=fn?fn(s):["",""]; r.push(v[0],v[1]); }); return r; };
+  const r5=["","LIBELLES","pondération"]; subs.forEach(s=>r5.push(s.supplier,""));
+  const r6=["","",""]; subs.forEach(()=>r6.push("Note/10","Note pondérée"));
+  const rmt=["","Montant HT soumis (FCFA)",""]; subs.forEach(s=>rmt.push(s.montantHT,""));
+  return [
+    ["","Evaluation par pondération","PLAN DE FORMATION 2026"],
+    [],
+    ["","","Thème"],
+    ["","Evaluation des offres techniques et commerciale", f.num+" — "+f.intitule],
+    ["","Budget de référence (HT)", budget||""],
+    ["","Critères"],
+    r5, r6,
+    crit("Habilitation FDFP",0.1),
+    crit("Expertise dans le domaine",0.2),
+    crit("Proposition technique",0.3),
+    crit("Total technique",""),
+    crit("Coût de la prestation",0.5, s=>{ const n=noteCout(s.montantHT,budget); return n==null?["",""]:[n, Math.round(n*0.5/10*10000)/10000]; }),
+    crit("Total",1),
+    crit("Classement Global",""),
+    [], rmt
+  ];
+}
+function comparatifWS(f,budget,subs){
+  const ws=XLSX.utils.aoa_to_sheet(comparatifAOA(f,budget,subs));
+  const merges=[]; subs.forEach((s,i)=>{ const c=3+i*2; merges.push({s:{r:6,c},e:{r:6,c:c+1}}); });
+  ws["!merges"]=merges;
+  ws["!cols"]=[{wch:2},{wch:34},{wch:12}].concat(subs.flatMap(()=>[{wch:9},{wch:13}]));
+  return ws;
+}
+const wbFromWS  = pairs => { const wb=XLSX.utils.book_new(); pairs.forEach(([n,ws])=>XLSX.utils.book_append_sheet(wb,ws,n.slice(0,31))); return wb; };
+const wbFromAOA = pairs => wbFromWS(pairs.map(([n,aoa])=>[n,XLSX.utils.aoa_to_sheet(aoa)]));
+const wbBlob = wb => new Blob([XLSX.write(wb,{type:"array",bookType:"xlsx"})],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
+
+/* ---------- Excel : RÉCAP GLOBAL ---------- */
+function recapAOA(budgets,subs){
+  const suppliers=[...new Set(subs.map(s=>s.supplier))].sort();
+  const head=["N°","Lot","Intitulé","Budget HT (réf.)",...suppliers.map(s=>s+" — Montant HT")];
+  const rows=[head];
+  FORMATIONS.forEach(f=>{
+    const row=[f.num,f.lot,f.intitule,budgets[f.num]||""];
+    suppliers.forEach(sp=>{ const sub=subs.find(x=>x.num===f.num&&x.supplier===sp); row.push(sub?sub.montantHT:""); });
+    rows.push(row);
+  });
+  return rows;
+}
+
+/* ================= COMPOSANTS ================= */
+function Topbar({sub,right}){ return <div className="topbar">
+  <div className="logo">O</div>
+  <div><div style={{fontWeight:800,fontSize:15}}>Appel d'Offres — Plan de Formation 2026</div>
+  <div style={{fontSize:12,opacity:.7}}>{sub}</div></div>
+  <div style={{marginLeft:"auto"}}>{right}</div>
+</div>; }
+
+function Landing({onPick}){
+  return <div>
+    <Topbar sub="Direction des Achats · Orange Côte d'Ivoire"/>
+    <div className="wrap" style={{maxWidth:820,marginTop:40}}>
+      <h1 style={{fontSize:26,marginBottom:8}}>Bienvenue sur la plateforme de soumission</h1>
+      <p className="mut" style={{marginBottom:28}}>78 formations · 4 lots · dépôt des offres techniques &amp; financières en ligne.</p>
+      <div className="row" style={{gap:18,flexWrap:"wrap"}}>
+        <div className="card col" style={{padding:26,minWidth:280}}>
+          <div className="pill lotb" style={{marginBottom:12}}>ESPACE PRESTATAIRE</div>
+          <h3 style={{marginBottom:8}}>Je soumissionne</h3>
+          <p className="mut" style={{marginBottom:18}}>Déposez vos offres pour chaque formation. Vous ne voyez que vos propres soumissions.</p>
+          <button className="btn" style={{width:"100%"}} onClick={()=>onPick("fournisseur")}>Accéder à mon espace →</button>
+        </div>
+        <div className="card col" style={{padding:26,minWidth:280}}>
+          <div className="pill" style={{background:"var(--or)",color:"#000",marginBottom:12}}>ESPACE ACHETEUR</div>
+          <h3 style={{marginBottom:8}}>Administration (OCI)</h3>
+          <p className="mut" style={{marginBottom:18}}>Rangement automatique, comparatifs, notation coût &amp; export Excel/ZIP.</p>
+          <button className="btn dark" style={{width:"100%"}} onClick={()=>onPick("admin")}>Espace administrateur →</button>
+        </div>
+      </div>
+      <div className="banner ok" style={{marginTop:24}}>💾 Les données (offres, montants, budgets) sont enregistrées <b>durablement dans ce navigateur</b> (base locale IndexedDB) : elles restent après fermeture et rechargement. Utilisez toujours le <b>même navigateur sur le même poste</b>.</div>
+    </div>
+  </div>;
+}
+
+/* ---------- ESPACE FOURNISSEUR ---------- */
+function Fournisseur({onBack}){
+  const [name,setName]=useState(""); const [entered,setEntered]=useState(false);
+  const [subs,setSubs]=useState([]); const [q,setQ]=useState(""); const [openF,setOpenF]=useState(null);
+
+  const reload=useCallback(async(nm)=>{ const all=await loadSubs(); setSubs(all.filter(s=>s.supplier===nm)); },[]);
+  useEffect(()=>{ if(entered) reload(name); },[entered,name,reload]);
+
+  const forms = FORMATIONS.filter(f=>f.aCoter);
+  const mine = subs.reduce((o,s)=>(o[s.num]=s,o),{});
+  const list = forms.filter(f=> !q || (f.num+" "+f.intitule).toLowerCase().includes(q.toLowerCase()));
+
+  if(!entered) return <div>
+    <Topbar sub="Espace prestataire" right={<button className="btn ghost sm" onClick={onBack}>← Accueil</button>}/>
+    <div className="wrap" style={{maxWidth:460,marginTop:50}}>
+      <div className="card" style={{padding:26}}>
+        <h2 style={{marginBottom:6}}>Identification</h2>
+        <p className="mut" style={{marginBottom:18}}>Saisissez le nom exact de votre société. Réutilisez-le à l'identique à chaque fois pour retrouver vos dépôts.</p>
+        <div className="field"><label>Nom du prestataire</label>
+          <input value={name} onChange={e=>setName(e.target.value)} placeholder="Ex : CABINET I2C" onKeyDown={e=>e.key==='Enter'&&name.trim()&&setEntered(true)}/></div>
+        <button className="btn" style={{width:"100%"}} disabled={!name.trim()} onClick={()=>setEntered(true)}>Continuer →</button>
+      </div>
+    </div>
+  </div>;
+
+  return <div>
+    <Topbar sub={"Prestataire : "+name} right={<button className="btn ghost sm" onClick={onBack}>← Accueil</button>}/>
+    <div className="wrap">
+      <div className="banner">🔒 Confidentialité : vous ne voyez que <b>vos</b> soumissions. Les offres des autres prestataires ne vous sont jamais présentées.</div>
+      <div className="row" style={{alignItems:"center",marginBottom:16}}>
+        <div><div className="stat" style={{color:"var(--or)"}}>{subs.length}<span style={{fontSize:15,color:"var(--g4)"}}> / {forms.length}</span></div>
+          <div className="mut">formations soumises</div></div>
+        <input className="search" style={{marginLeft:"auto"}} placeholder="Rechercher une formation…" value={q} onChange={e=>setQ(e.target.value)}/>
+      </div>
+      {LOTS.map(lot=>{ const items=list.filter(f=>f.lot===lot); if(!items.length) return null;
+        return <div key={lot} style={{marginBottom:22}}>
+          <div style={{display:"flex",alignItems:"center",gap:10,margin:"6px 0 10px"}}>
+            <span className="pill lotb">{lot}</span><b>{LOT_TITRE[lot]}</b><span className="mut">· {items.length} formations</span></div>
+          <div className="card" style={{overflow:"hidden"}}>
+            <table><thead><tr><th style={{width:60}}>N°</th><th>Intitulé</th><th style={{width:150}}>Montant HT</th><th style={{width:120}}>Statut</th><th style={{width:90}}></th></tr></thead>
+            <tbody>{items.map(f=>{ const s=mine[f.num]; return <tr key={f.num}>
+              <td><b>{f.num}</b></td><td>{f.intitule}</td>
+              <td>{s?fmt(s.montantHT)+" F":"—"}</td>
+              <td>{s?<span className="badge-ok">✓ Soumis</span>:<span className="mut">À soumettre</span>}</td>
+              <td><button className="btn sm ghost" onClick={()=>setOpenF(f)}>{s?"Modifier":"Soumettre"}</button></td>
+            </tr>; })}</tbody></table>
+          </div>
+        </div>;
+      })}
+    </div>
+    {openF && <SubmitModal f={openF} supplier={name} existing={mine[openF.num]} onClose={()=>setOpenF(null)} onSaved={()=>{setOpenF(null);reload(name);}}/>}
+  </div>;
+}
+
+function SubmitModal({f,supplier,existing,onClose,onSaved}){
+  const [montant,setMontant]=useState(existing?existing.montantHT:"");
+  const [tech,setTech]=useState(null); const [fin,setFin]=useState(null);
+  const [err,setErr]=useState(""); const [busy,setBusy]=useState(false);
+
+  async function submit(){
+    setErr("");
+    if(!montant||+montant<=0){ setErr("Indiquez un montant HT valide."); return; }
+    if(!existing && (!tech||!fin)){ setErr("Joignez l'offre technique ET l'offre financière."); return; }
+    setBusy(true);
+    try{
+      if(tech) await saveFile(f.num,supplier,"t",tech);
+      if(fin)  await saveFile(f.num,supplier,"f",fin);
+      await saveSub({supplier,num:f.num,lot:f.lot,intitule:f.intitule,montantHT:+montant,
+        techName:tech?tech.name:(existing&&existing.techName),
+        finName:fin?fin.name:(existing&&existing.finName), ts:Date.now()});
+      onSaved();
+    }catch(e){ setErr("Erreur d'enregistrement : "+(e.message||e)); setBusy(false); }
+  }
+  const Drop=({label,file,cur,set})=> <div className="field">
+    <label>{label}{cur&&!file&&<span className="mut"> · actuel : {cur}</span>}</label>
+    <label className="drop">{file?("📎 "+file.name):(cur?"Remplacer le fichier…":"Cliquez pour joindre le fichier")}
+      <input type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.zip,.rar,.png,.jpg" style={{display:"none"}} onChange={e=>set(e.target.files[0]||null)}/></label></div>;
+
+  return <div className="modal-bg" onClick={onClose}><div className="modal" onClick={e=>e.stopPropagation()}>
+    <div style={{display:"flex",gap:8,alignItems:"center",marginBottom:4}}><span className="pill lotb">{f.lot}</span><b>{f.num}</b></div>
+    <h2 style={{fontSize:19,marginBottom:16}}>{f.intitule}</h2>
+    <div className="field"><label>Montant HT facturé (FCFA)</label>
+      <input type="number" value={montant} onChange={e=>setMontant(e.target.value)} placeholder="Ex : 1 500 000"/></div>
+    <Drop label="Offre technique" file={tech} cur={existing&&existing.techName} set={setTech}/>
+    <Drop label="Offre financière" file={fin} cur={existing&&existing.finName} set={setFin}/>
+    {err&&<div style={{color:"var(--warn)",fontSize:13,marginBottom:12}}>{err}</div>}
+    <div className="row" style={{marginTop:6}}>
+      <button className="btn ghost col" onClick={onClose}>Annuler</button>
+      <button className="btn col" disabled={busy} onClick={submit}>{busy?<span className="spin"/>:"Déposer mon offre"}</button>
+    </div>
+  </div></div>;
+}
+
+/* ---------- ESPACE ADMIN ---------- */
+function Admin({onBack}){
+  const [ok,setOk]=useState(false); const [pin,setPin]=useState(""); const [e,setE]=useState("");
+  const [tab,setTab]=useState("tree");
+  const [subs,setSubs]=useState([]); const [budgets,setBudgets]=useState({}); const [loading,setLoading]=useState(true);
+
+  const reload=useCallback(async()=>{ setLoading(true); setSubs(await loadSubs()); setBudgets(await loadBudgets()); setLoading(false); },[]);
+  useEffect(()=>{ if(ok) reload(); },[ok,reload]);
+
+  if(!ok) return <div>
+    <Topbar sub="Espace administrateur" right={<button className="btn ghost sm" onClick={onBack}>← Accueil</button>}/>
+    <div className="wrap" style={{maxWidth:420,marginTop:50}}>
+      <div className="card" style={{padding:26}}>
+        <h2 style={{marginBottom:14}}>Accès sécurisé</h2>
+        <div className="field"><label>Code administrateur</label>
+          <input type="password" value={pin} onChange={ev=>setPin(ev.target.value)} placeholder="••••••••" onKeyDown={ev=>ev.key==='Enter'&&(pin===ADMIN_PIN?setOk(true):setE("Code incorrect."))}/></div>
+        {e&&<div style={{color:"var(--warn)",fontSize:13,marginBottom:10}}>{e}</div>}
+        <button className="btn" style={{width:"100%"}} onClick={()=>pin===ADMIN_PIN?setOk(true):setE("Code incorrect.")}>Entrer</button>
+      </div>
+    </div>
+  </div>;
+
+  const T=[["tree","🗂 Arborescence"],["budget","💰 Budgets"],["recap","📊 Récap & Export"]];
+  return <div>
+    <Topbar sub="Administration · Direction des Achats" right={<button className="btn ghost sm" onClick={onBack}>← Accueil</button>}/>
+    <div className="wrap">
+      <div className="tabs">{T.map(([k,l])=><button key={k} className={"tab"+(tab===k?" on":"")} onClick={()=>setTab(k)}>{l}</button>)}
+        <button className="btn ghost sm" style={{marginLeft:"auto"}} onClick={reload}>↻ Actualiser</button></div>
+      {loading? <p className="mut"><span className="spin"/> Chargement…</p> :
+        tab==="tree"? <TreeView subs={subs} budgets={budgets} onChange={reload}/> :
+        tab==="budget"? <BudgetView budgets={budgets} subs={subs} onSave={async b=>{await saveBudgets(b);setBudgets(b);}}/> :
+        <RecapView subs={subs} budgets={budgets}/>}
+    </div>
+  </div>;
+}
+
+function TreeView({subs,budgets,onChange}){
+  const [open,setOpen]=useState({}); const [openF,setOpenF]=useState({});
+  const byNum={}; subs.forEach(s=>{ (byNum[s.num]=byNum[s.num]||[]).push(s); });
+  const participants=new Set(subs.map(s=>s.supplier)).size;
+
+  async function download(num,supplier,kind,fname){ const blob=await getFile(num,supplier,kind); if(!blob){ alert("Fichier introuvable."); return; } dl(blob,fname); }
+  async function remove(num,supplier){ if(confirm(`Supprimer la soumission de ${supplier} pour ${num} ?`)){ await delSub(num,supplier); onChange(); } }
+
+  return <div>
+    <div className="grid-cards" style={{marginBottom:20}}>
+      <div className="card" style={{padding:16}}><div className="stat">{subs.length}</div><div className="mut">soumissions</div></div>
+      <div className="card" style={{padding:16}}><div className="stat">{participants}</div><div className="mut">prestataires actifs</div></div>
+      <div className="card" style={{padding:16}}><div className="stat">{Object.keys(byNum).length}<span style={{fontSize:15,color:"var(--g4)"}}>/{FORMATIONS.length}</span></div><div className="mut">formations couvertes</div></div>
+    </div>
+    {LOTS.map(lot=>{ const items=FORMATIONS.filter(f=>f.lot===lot && byNum[f.num]);
+      const cnt=items.reduce((a,f)=>a+byNum[f.num].length,0);
+      return <div key={lot} className="card" style={{marginBottom:14,overflow:"hidden"}}>
+        <div style={{padding:"14px 18px",display:"flex",alignItems:"center",gap:10,cursor:"pointer",background:"var(--bk)",color:"#fff"}} onClick={()=>setOpen(o=>({...o,[lot]:!o[lot]}))}>
+          <span style={{color:"var(--or)"}}>{open[lot]?"▼":"▶"}</span>
+          <b style={{color:"var(--or)"}}>{lot}</b> — {LOT_TITRE[lot]}
+          <span style={{marginLeft:"auto",fontSize:13,opacity:.8}}>{items.length} formations · {cnt} offres</span>
+        </div>
+        {open[lot] && <div style={{padding:"6px 10px 12px"}}>
+          {!items.length && <p className="mut" style={{padding:12}}>Aucune soumission dans ce lot.</p>}
+          {items.map(f=>{ const ss=byNum[f.num];
+            return <div key={f.num} style={{borderTop:"1px solid var(--g2)"}}>
+              <div style={{padding:"10px 12px",display:"flex",alignItems:"center",gap:10,cursor:"pointer"}} onClick={()=>setOpenF(o=>({...o,[f.num]:!o[f.num]}))}>
+                <span className="mut">{openF[f.num]?"▼":"▶"}</span><b>{f.num}</b>
+                <span style={{flex:1}}>{f.intitule}</span><span className="mut">{ss.length} prestataire(s)</span></div>
+              {openF[f.num] && <div style={{padding:"0 12px 12px 34px"}}>
+                <table><thead><tr><th>Prestataire</th><th>Montant HT</th><th>Note coût /10</th><th>Offre tech.</th><th>Offre fin.</th><th></th></tr></thead>
+                <tbody>{ss.slice().sort((a,b)=>a.montantHT-b.montantHT).map(s=>{ const n=noteCout(s.montantHT,budgets[f.num]);
+                  return <tr key={s.supplier}>
+                    <td><b>{s.supplier}</b></td><td>{fmt(s.montantHT)} F</td>
+                    <td><span className="note-chip" style={{background:noteColor(n)}}>{n==null?"budget ?":n}</span></td>
+                    <td>{s.techName?<a className="dl" onClick={()=>download(f.num,s.supplier,"t",`${f.num}_${safe(s.supplier)}_technique_${s.techName}`)}>⬇ {(s.techName||"").slice(0,18)}</a>:"—"}</td>
+                    <td>{s.finName?<a className="dl" onClick={()=>download(f.num,s.supplier,"f",`${f.num}_${safe(s.supplier)}_financiere_${s.finName}`)}>⬇ {(s.finName||"").slice(0,18)}</a>:"—"}</td>
+                    <td><button className="btn sm ghost" onClick={()=>remove(f.num,s.supplier)}>✕</button></td>
+                  </tr>; })}</tbody></table>
+                <button className="btn sm ghost" style={{marginTop:10}} onClick={()=>dl(wbBlob(wbFromWS([["Comparatif",comparatifWS(f,budgets[f.num],ss)]])),`EVAL_${f.num}.xlsx`)}>📄 Fiche d'évaluation Excel — {f.num}</button>
+              </div>}
+            </div>; })}
+        </div>}
+      </div>;
+    })}
+    {!subs.length && <div className="card" style={{padding:30,textAlign:"center"}}><p className="mut">Aucune soumission pour l'instant. Les dépôts apparaîtront ici, rangés par lot → formation → prestataire.</p></div>}
+  </div>;
+}
+
+function BudgetView({budgets,subs,onSave}){
+  const [b,setB]=useState(budgets); const [q,setQ]=useState(""); const [saved,setSaved]=useState(false);
+  const set=(num,v)=>{ setB(o=>({...o,[num]:v===""?null:+v})); setSaved(false); };
+  const list=FORMATIONS.filter(f=> !q || (f.num+" "+f.intitule).toLowerCase().includes(q.toLowerCase()));
+  const filled=FORMATIONS.filter(f=>b[f.num]).length;
+  const cnt={}; subs.forEach(s=>cnt[s.num]=(cnt[s.num]||0)+1);
+  return <div>
+    <div className="banner">Le budget est la <b>référence de notation</b> du coût (note = 6). Moins cher → la note monte vers 10 ; plus cher → elle descend vers 1. Les valeurs sont pré-chargées depuis le plan de formation ; ajustez si besoin puis <b>Enregistrer</b>.</div>
+    <div className="row" style={{alignItems:"center",marginBottom:14}}>
+      <span className="mut">{filled}/{FORMATIONS.length} budgets renseignés</span>
+      <input className="search" style={{marginLeft:"auto"}} placeholder="Rechercher…" value={q} onChange={e=>setQ(e.target.value)}/>
+      <button className="btn" onClick={()=>{onSave(b);setSaved(true);}}>💾 Enregistrer</button>
+    </div>
+    {saved&&<div style={{color:"var(--ok)",fontWeight:600,marginBottom:10}}>✓ Budgets enregistrés.</div>}
+    <div className="card" style={{overflow:"hidden"}}>
+      <table><thead><tr><th style={{width:55}}>N°</th><th style={{width:70}}>Lot</th><th>Intitulé</th><th style={{width:180}}>Budget HT (FCFA)</th><th style={{width:110}}>Offres reçues</th></tr></thead>
+      <tbody>{list.map(f=><tr key={f.num}>
+        <td><b>{f.num}</b></td><td><span className="pill lotb" style={{fontSize:10}}>{f.lot}</span></td>
+        <td style={{fontSize:12}}>{f.intitule}{!f.aCoter&&<span className="mut"> · (non cotée)</span>}</td>
+        <td><input type="number" value={b[f.num]??""} onChange={e=>set(f.num,e.target.value)} placeholder="—"/></td>
+        <td className="mut">{cnt[f.num]||0}</td>
+      </tr>)}</tbody></table>
+    </div>
+  </div>;
+}
+
+function RecapView({subs,budgets}){
+  const [busy,setBusy]=useState(false);
+  const suppliers=[...new Set(subs.map(s=>s.supplier))].sort();
+  const exportRecap=()=>dl(wbBlob(wbFromAOA([["Récap Global",recapAOA(budgets,subs)]])),"Recap_Appel_Offres_2026.xlsx");
+
+  async function exportZip(){
+    setBusy(true);
+    try{
+      const zip=new JSZip();
+      const byNum={}; subs.forEach(s=>{(byNum[s.num]=byNum[s.num]||[]).push(s);});
+      for(const lot of LOTS){
+        const lotItems=FORMATIONS.filter(f=>f.lot===lot && byNum[f.num]);
+        if(!lotItems.length) continue;
+        const lf=zip.folder(safe(`${lot} _ ${LOT_TITRE[lot]}`));
+        for(const f of lotItems){
+          const ss=byNum[f.num];
+          const ff=lf.folder(safe(`${f.num}_${f.intitule}`).slice(0,90));
+          for(const s of ss){
+            const sf=ff.folder(safe(s.supplier));
+            if(s.techName){ const t=await getFile(f.num,s.supplier,"t"); if(t) sf.file("Offre_technique_"+safe(s.techName),t); }
+            if(s.finName){ const fi=await getFile(f.num,s.supplier,"f"); if(fi) sf.file("Offre_financiere_"+safe(s.finName),fi); }
+          }
+          ff.file(`EVAL_${f.num}_${safe(f.intitule).slice(0,50)}.xlsx`, wbBlob(wbFromWS([["Comparatif",comparatifWS(f,budgets[f.num],ss)]])));
+        }
+      }
+      zip.file("RECAP_GLOBAL.xlsx", wbBlob(wbFromAOA([["Récap Global",recapAOA(budgets,subs)]])));
+      dl(await zip.generateAsync({type:"blob"}),"Archive_AppelOffres_Formations_2026.zip");
+    }catch(e){ alert("Erreur ZIP : "+(e.message||e)); }
+    setBusy(false);
+  }
+
+  return <div>
+    <div className="grid-cards" style={{marginBottom:20}}>
+      <div className="card" style={{padding:18}}>
+        <h3 style={{marginBottom:6}}>📊 Récapitulatif Excel</h3>
+        <p className="mut" style={{marginBottom:14,fontSize:13}}>Les 78 formations, leur budget et le montant HT de chaque prestataire, en un tableau.</p>
+        <button className="btn" style={{width:"100%"}} onClick={exportRecap} disabled={!subs.length}>Télécharger le récap</button>
+      </div>
+      <div className="card" style={{padding:18}}>
+        <h3 style={{marginBottom:6}}>🗂 Archive ZIP complète</h3>
+        <p className="mut" style={{marginBottom:14,fontSize:13}}>Arborescence LOT → Bx_Intitulé → Prestataire (offres) + fiche d'évaluation par formation + récap global.</p>
+        <button className="btn dark" style={{width:"100%"}} onClick={exportZip} disabled={busy||!subs.length}>{busy?<span className="spin"/>:"Générer & télécharger le ZIP"}</button>
+      </div>
+    </div>
+    <h3 style={{margin:"6px 0 12px"}}>Aperçu du récapitulatif</h3>
+    <div className="card" style={{overflow:"auto"}}>
+      <table><thead><tr><th>N°</th><th>Lot</th><th>Intitulé</th><th>Budget HT</th>{suppliers.map(s=><th key={s}>{s}</th>)}</tr></thead>
+      <tbody>{FORMATIONS.map(f=><tr key={f.num}>
+        <td><b>{f.num}</b></td><td><span className="pill lotb" style={{fontSize:10}}>{f.lot}</span></td>
+        <td style={{fontSize:12}}>{(f.intitule||"").slice(0,42)}</td>
+        <td>{budgets[f.num]?fmt(budgets[f.num]):"—"}</td>
+        {suppliers.map(sp=>{ const s=subs.find(x=>x.num===f.num&&x.supplier===sp); return <td key={sp}>{s?fmt(s.montantHT):"—"}</td>; })}
+      </tr>)}</tbody></table>
+    </div>
+    {!subs.length&&<p className="mut" style={{marginTop:14}}>Les exports s'activeront dès la première soumission.</p>}
+  </div>;
+}
+
+/* ---------- ROOT ---------- */
+function App(){
+  const [view,setView]=useState("landing");
+  if(view==="fournisseur") return <Fournisseur onBack={()=>setView("landing")}/>;
+  if(view==="admin") return <Admin onBack={()=>setView("landing")}/>;
+  return <Landing onPick={setView}/>;
+}
+
+/* Montage compatible React 18 (createRoot) ET React 17 (render) */
+(function mount(){
+  const el=document.getElementById("root");
+  try{
+    if(ReactDOM&&typeof ReactDOM.createRoot==="function") ReactDOM.createRoot(el).render(<App/>);
+    else if(ReactDOM&&typeof ReactDOM.render==="function") ReactDOM.render(<App/>,el);
+    else throw new Error("ReactDOM indisponible (ni createRoot ni render).");
+  }catch(e){ if(window.__showFatal) window.__showFatal(e); throw e; }
+})();
+</script>
+<script>
+(function(){
+  var lastError=null;
+  function box(inner){ var r=document.getElementById('root'); if(!r)return;
+    r.innerHTML='<div style="max-width:640px;margin:60px auto;font-family:system-ui,sans-serif;padding:22px;border:1px solid #fed7aa;background:#fff7ed;color:#9a3412;border-radius:12px"><h3 style="margin:0 0 10px">L\'application ne s\'est pas affichee</h3>'+inner+'</div>'; }
+  window.__showFatal=function(e){ var msg=(e&&(e.message||e))+''; lastError=msg;
+    box('<p style="margin:0 0 10px">Une erreur JavaScript est survenue :</p><pre style="white-space:pre-wrap;background:#fff;border:1px solid #fed7aa;border-radius:8px;padding:10px;margin:0 0 10px;font-size:13px">'+msg.replace(/</g,'&lt;')+'</pre><p style="margin:0;font-size:13px">Rechargez avec <b>Ctrl+F5</b>.</p>'); };
+  window.addEventListener('error',function(ev){ if(ev&&ev.message) lastError=ev.message; });
+  window.addEventListener('unhandledrejection',function(ev){ if(ev&&ev.reason) lastError=(ev.reason.message||ev.reason)+''; });
+  window.addEventListener('load',function(){ setTimeout(function(){
+    var r=document.getElementById('root');
+    if(r&&r.innerHTML.trim()===''){
+      var need={React:window.React,ReactDOM:window.ReactDOM,Babel:window.Babel,XLSX:window.XLSX,JSZip:window.JSZip};
+      var miss=Object.keys(need).filter(function(k){return !need[k];});
+      if(miss.length) box('<p style="margin:0">Librairies non chargees : <b>'+miss.join(', ')+'</b>.<br><br>Connexion instable ou bloqueur bloquant les CDN. Rechargez (Ctrl+F5) ou desactivez le bloqueur pour ce site.</p>');
+      else if(lastError) window.__showFatal(lastError);
+      else box('<p style="margin:0">Une erreur JavaScript est survenue. Ouvrez la console (F12) et transmettez le message en rouge.</p>');
+    }
+  },2500); });
+})();
+</script>
+</body>
+</html>

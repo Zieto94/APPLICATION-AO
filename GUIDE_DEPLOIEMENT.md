@@ -3,8 +3,14 @@
 Application web de gestion des appels d'offres : dépôt des offres par les
 prestataires, rangement automatique, notation du coût et exports Excel/ZIP.
 
-- **`index.html`** : toute l'application (un seul fichier, à ouvrir dans un navigateur).
+- **`index.html`** : l'application **multi-utilisateur** (base partagée Supabase). C'est LA version à utiliser pour que plusieurs prestataires se connectent depuis leurs propres ordinateurs.
 - **`schema.sql`** : la base de données (tables, sécurité, stockage, les 78 formations).
+- **`index_local_monoposte.html`** *(secours)* : version **hors-ligne mono-poste** (base locale IndexedDB, aucun réseau). Utile pour tester ou saisir sur **un seul** ordinateur — mais elle **ne partage pas** les données entre postes, donc **pas** de vrai multi-utilisateur.
+
+> ⚠️ **Multi-utilisateur = hébergement obligatoire.** Pour que les ~15 prestataires
+> déposent chacun depuis leur PC et que l'admin voie tout, l'application doit être
+> **mise en ligne** (étape 6) : on ne peut pas partager un fichier `.html` posé sur un
+> bureau. Ouvrir le fichier en local (`file://`) ne sert qu'à vos propres tests.
 
 ---
 
