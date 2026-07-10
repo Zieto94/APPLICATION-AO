@@ -74,7 +74,7 @@ const SUPABASE_PROJECT  = "https://hehzubjnsnihfzzbgwyd.supabase.co";
 const SUPABASE_URL      = (location.protocol === "https:") ? (location.origin + "/supabase") : SUPABASE_PROJECT;
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhlaHp1Ympuc25paGZ6emJnd3lkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM2MDQwNzAsImV4cCI6MjA5OTE4MDA3MH0.H1QC85y7KLqcQP3mm2ZV_xva8USNWni-x_dtMk_hoEg";
 const MAIL_DOMAIN = "ao.local";               // e-mail technique interne (jamais affiché)
-const ADMIN_COMPANIES = ["ORANGE"];           // sociétés qui ouvrent l'écran admin
+const ADMIN_COMPANIES = ["ORANGE CI"];        // sociétés admin (nom EXACT de connexion)
 /* ============================================================ */
 
 /* ---------- LES 78 FORMATIONS (catalogue fixe, intégré à l'app) ----------
@@ -498,8 +498,8 @@ function App(){
   if(!session) return <AuthScreen/>;
   if(!profile) return Spin("Chargement du profil…");
   const logout=()=>sb.auth.signOut();
-  const isAdmin = profile.role==="admin"
-    || ADMIN_COMPANIES.map(x=>x.trim().toLowerCase()).includes((profile.company_name||"").trim().toLowerCase());
+  const normCo = s => (s||"").trim().toLowerCase().replace(/\s+/g," ");
+  const isAdmin = profile.role==="admin" || ADMIN_COMPANIES.map(normCo).includes(normCo(profile.company_name));
   return isAdmin
     ? <AdminApp session={session} profile={profile} onLogout={logout}/>
     : <SupplierApp session={session} profile={profile} onLogout={logout}/>;
