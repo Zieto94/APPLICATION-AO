@@ -91,6 +91,8 @@ catch(e){ console.error("Supabase createClient:", e); }
 
 /* ---------- Helpers ---------- */
 const safe = s => (s||"").replace(/[\\/:*?"<>|\n\r]+/g,"_").replace(/\s+/g," ").trim();
+/* Clé de stockage Supabase : uniquement [a-z0-9._-] (sinon erreur « Invalid key » sur accents/espaces/symboles) */
+const keySafe = s => ((s||"fichier").normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^a-zA-Z0-9._-]+/g,"_").replace(/_+/g,"_").replace(/^[._]+/,"").slice(0,120)) || "fichier";
 const fmt  = n => (n||n===0) ? Number(n).toLocaleString("fr-FR") : "—";
 const numPart = s => { const m=(s||"").match(/\d+/); return m?+m[0]:999; };
 const sortForm = a => a.slice().sort((x,y)=>numPart(x.num)-numPart(y.num));
@@ -273,7 +275,7 @@ function SubmitModal({f,uid,company,existing,onClose,onSaved}){
   const [tech,setTech]=useState(null); const [fin,setFin]=useState(null);
   const [err,setErr]=useState(""); const [busy,setBusy]=useState(false);
   async function up(file,kind){
-    const path=`${uid}/${f.num}/${kind}_${Date.now()}_${safe(file.name)}`;
+    const path=`${uid}/${f.num}/${kind}_${Date.now()}_${keySafe(file.name)}`;
     const {error}=await sb.storage.from("offres").upload(path,file,{upsert:true});
     if(error) throw error; return {path,name:file.name};
   }
