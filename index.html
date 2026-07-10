@@ -75,6 +75,7 @@ const SUPABASE_URL      = (location.protocol === "https:") ? (location.origin + 
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhlaHp1Ympuc25paGZ6emJnd3lkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM2MDQwNzAsImV4cCI6MjA5OTE4MDA3MH0.H1QC85y7KLqcQP3mm2ZV_xva8USNWni-x_dtMk_hoEg";
 const MAIL_DOMAIN = "ao.local";               // e-mail technique interne (jamais affiché)
 const ADMIN_COMPANIES = ["ORANGE CI"];        // sociétés admin (nom EXACT de connexion)
+const APP_VERSION = "v2.1";                    // repère de version (affiché sur l'écran de connexion)
 /* ============================================================ */
 
 /* ---------- LES 78 FORMATIONS (catalogue fixe, intégré à l'app) ----------
@@ -216,7 +217,7 @@ function AuthScreen(){
                          : <>Déjà inscrit ? <span className="link" onClick={()=>{setMode("login");setMsg("");}}>Se connecter</span></>}
         </p>
       </div>
-      <p className="mut" style={{textAlign:"center",marginTop:14,fontSize:12}}>Connexion par nom d'entreprise — aucun e-mail requis.</p>
+      <p className="mut" style={{textAlign:"center",marginTop:14,fontSize:12}}>Connexion par nom d'entreprise — aucun e-mail requis. · {APP_VERSION}</p>
     </div>
   </div>;
 }
@@ -275,7 +276,8 @@ function SubmitModal({f,uid,company,existing,onClose,onSaved}){
   const [tech,setTech]=useState(null); const [fin,setFin]=useState(null);
   const [err,setErr]=useState(""); const [busy,setBusy]=useState(false);
   async function up(file,kind){
-    const path=`${uid}/${f.num}/${kind}_${Date.now()}_${keySafe(file.name)}`;
+    const ext=(String(file.name).match(/\.([A-Za-z0-9]{1,8})$/)||[,"bin"])[1].toLowerCase();
+    const path=`${uid}/${f.num}/${kind}_${Date.now()}.${ext}`; // clé sans nom de fichier -> jamais "Invalid key"
     const {error}=await sb.storage.from("offres").upload(path,file,{upsert:true});
     if(error) throw error; return {path,name:file.name};
   }
